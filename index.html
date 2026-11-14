@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Asistent</title>
+<style>
+  :root{--bg:#0f1115;--card:#181b22;--line:#2a2f3a;--txt:#e7e9ee;--mut:#8b93a3;--acc:#4f8cff;--ok:#2fbf71;--bad:#e5484d}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:15px}
+  header{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2}
+  header button{flex:1;background:var(--card);color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px}
+  header button.on{color:var(--txt);border-color:var(--acc)}
+  main{padding:12px;max-width:680px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  #startBtn{width:100%;padding:18px;font-size:18px;font-weight:600;border:0;border-radius:12px;background:var(--acc);color:#fff}
+  #startBtn.running{background:var(--bad)}
+  .row{display:flex;gap:8px;margin-top:10px}
+  .row button,.btn{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);background:#20242d;color:var(--txt);font-size:14px}
+  .btn{width:100%;margin-top:10px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px}
+  .seg button{flex:1;padding:10px;border:0;background:transparent;color:var(--mut);font-size:14px}
+  .seg button.on{background:#243049;color:var(--txt)}
+  #status{font-size:13px;color:var(--mut);margin-top:8px;display:flex;align-items:center;gap:6px}
+  #lat{margin-left:auto;font-variant-numeric:tabular-nums}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--mut);flex:none}
+  .dot.live{background:var(--ok);animation:p 1.2s infinite}
+  @keyframes p{50%{opacity:.35}}
+  h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+  #transcript{max-height:32vh;overflow:auto;font-size:14px;line-height:1.45}
+  #transcript .interim{color:var(--mut);font-style:italic}
+  #suggestions{max-height:32vh;overflow:auto}
+  .sug{padding:8px 10px;border-left:3px solid var(--acc);background:#1d2230;border-radius:6px;margin-bottom:6px;font-size:15px}
+  .sug.trad{border-color:#b98cff}.sug.info{border-color:var(--ok)}
+  .sug small{display:block;color:var(--mut);font-size:11px;margin-bottom:2px}
+  label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+  input,select,textarea{width:100%;background:#11141a;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px;font-family:inherit}
+  textarea{min-height:110px;resize:vertical}
+  .hint{font-size:12px;color:var(--mut);margin-top:4px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hidden{display:none!important}
+  .check{display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:14px;color:var(--txt)}
+  .check input{width:auto;margin-top:3px}
+  #black{position:fixed;inset:0;background:#000;z-index:99}
+  #apiMsg{font-size:13px;margin-top:6px}
+  .meter{height:14px;background:#11141a;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-top:6px}
+  .meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv span:first-child{color:var(--mut)}
+  .kv span:last-child{text-align:right}
+  .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:#f5a524}
+  #devList{font-size:13px;color:var(--mut);margin-top:6px;line-height:1.5}
+  #installBtn{background:var(--acc);border:0;color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <button id="tabLive" class="on">Live</button>
+  <button id="tabDiag">Diagnostic</button>
+  <button id="tabSet">Setări</button>
+</header>
+
+<main>
+  <!-- ===== LIVE ===== -->
+  <section id="live">
+    <div class="card">
+      <button id="startBtn">▶ Pornește ascultarea</button>
+      <div class="seg" id="modeSeg">
+        <button data-mode="nego" class="on">Negociere</button>
+        <button data-mode="trad">Traducere</button>
+        <button data-mode="info">Informații</button>
+      </div>
+      <div class="row">
+        <button id="nowBtn">Sugerează acum</button>
+        <button id="repeatBtn">Repetă</button>
+        <button id="silenceBtn">Tăcere</button>
+      </div>
+      <div class="row">
+        <button id="blackBtn">Ecran negru</button>
+        <button id="clearBtn">Șterge tot</button>
+      </div>
+      <div id="status"><span class="dot" id="dot"></span><span id="statusTxt">Oprit</span><span id="lat"></span></div>
+      <div class="hint" id="batt"></div>
+      <button class="btn hidden" id="installBtn">Instalează aplicația pe telefon</button>
+    </div>
+
+    <div class="card">
+      <h3>În cască</h3>
+      <div id="suggestions"></div>
+    </div>
+
+    <div class="card">
+      <h3>Transcriere</h3>
+      <div id="transcript"></div>
+    </div>
+  </section>
+
+  <!-- ===== DIAGNOSTIC ===== -->
+  <section id="diag" class="hidden">
+    <div class="card">
+      <h3>Microfon</h3>
+      <button class="btn" id="diagMicBtn" style="margin-top:0">Verifică microfonul</button>
+      <div class="kv"><span>Microfon activ</span><span id="dMic">—</span></div>
+      <div class="kv"><span>Tip</span><span id="dMicType">—</span></div>
+      <label>Nivel sonor (vorbește sau bate ușor lângă emițător)</label>
+      <div class="meter"><i id="dMeter"></i></div>
+      <div id="devList"></div>
+    </div>
+    <div class="card">
+      <h3>Cască</h3>
+      <button class="btn" id="diagEarBtn" style="margin-top:0">Test cască: „unu, doi, trei”</button>
+      <div class="hint">Trebuie să auzi în cască, nu în difuzorul telefonului. Dacă se aude în difuzor: Setări → Conexiuni → Bluetooth → rotița căștii → „Audio” pornit, „Apeluri” oprit.</div>
+    </div>
+    <div class="card">
+      <h3>Sistem</h3>
+      <div class="kv"><span>Recunoaștere vocală</span><span id="dSR">—</span></div>
+      <div class="kv"><span>Voce sintetică</span><span id="dTTS">—</span></div>
+      <div class="kv"><span>Internet</span><span id="dNet">—</span></div>
+      <div class="kv"><span>Cheie API</span><span id="dKey">—</span></div>
+      <div class="kv"><span>Baterie</span><span id="dBatt">—</span></div>
+      <div class="kv"><span>Instalată ca aplicație</span><span id="dPwa">—</span></div>
+    </div>
+  </section>
+
+  <!-- ===== SETĂRI ===== -->
+  <section id="settings" class="hidden">
+    <div class="card">
+      <h3>Model AI</h3>
+      <label for="apiKey">Cheie API Anthropic</label>
+      <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+      <div class="hint">Se păstrează doar în acest browser, pe telefon.</div>
+      <label for="model">Model</label>
+      <select id="model">
+        <option value="claude-haiku-5-5">Claude Haiku 5.5 (rapid – recomandat live)</option>
+        <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (mai nuanțat, mai lent)</option>
+      </select>
+      <label for="customModel">Alt model (opțional, are prioritate)</label>
+      <input id="customModel" placeholder="ex. claude-opus-5-5">
+      <button class="btn" id="testApi">Testează conexiunea API</button>
+      <div id="apiMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Limbi</h3>
+      <div class="two">
+        <div>
+          <label for="inLang">Limba vorbită în sală</label>
+          <select id="inLang">
+            <option value="ro-RO">Română</option><option value="en-US">Engleză (US)</option>
+            <option value="en-GB">Engleză (UK)</option><option value="fr-FR">Franceză</option>
+            <option value="de-DE">Germană</option><option value="it-IT">Italiană</option>
+            <option value="es-ES">Spaniolă</option><option value="tr-TR">Turcă</option>
+          </select>
+        </div>
+        <div>
+          <label for="outLang">Limba din cască</label>
+          <select id="outLang">
+            <option value="ro-RO">Română</option><option value="en-US">Engleză</option>
+            <option value="fr-FR">Franceză</option><option value="de-DE">Germană</option>
+            <option value="it-IT">Italiană</option><option value="es-ES">Spaniolă</option>
+            <option value="tr-TR">Turcă</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">Negociere/Informații: răspunsul vine în limba din cască. Traducere: ce se aude e tradus în limba din cască.</div>
+    </div>
+
+    <div class="card">
+      <h3>Voce în cască</h3>
+      <label for="voice">Voce</label>
+      <select id="voice"></select>
+      <div class="two">
+        <div><label for="rate">Viteză (0.7–1.6)</label><input id="rate" type="number" min="0.7" max="1.6" step="0.05" value="1.1"></div>
+        <div><label for="vol">Volum (0–1)</label><input id="vol" type="number" min="0" max="1" step="0.1" value="1"></div>
+      </div>
+      <div class="hint">Pe Android volumul real se reglează din volumul media al telefonului (recomandat 20–30%).</div>
+      <button class="btn" id="testVoice">Test voce</button>
+    </div>
+
+    <div class="card">
+      <h3>Comportament</h3>
+      <div class="two">
+        <div><label for="pauseMs">Pauză declanșare (ms)</label><input id="pauseMs" type="number" min="400" max="5000" step="100" value="1300"></div>
+        <div><label for="maxWords">Max. cuvinte</label><input id="maxWords" type="number" min="5" max="60" value="22"></div>
+      </div>
+      <div class="hint">După câtă liniște se trimite fraza la AI.</div>
+      <label class="check"><input type="checkbox" id="whisper" checked> Mod șoaptă: max. 12 cuvinte (15 la Informații), voce mai lentă și mai clară la volum mic</label>
+      <label class="check"><input type="checkbox" id="autoNego" checked> Negociere: sugestii automate (altfel doar la „Sugerează acum”)</label>
+      <label class="check"><input type="checkbox" id="webSearch"> Informații: caută pe web când e nevoie de date recente (+2–5 s)</label>
+      <label class="check"><input type="checkbox" id="muteWhileSpeak"> Oprește ascultarea cât vorbește casca (doar dacă folosești microfonul telefonului)</label>
+    </div>
+
+    <div class="card">
+      <h3>Brief / context (Negociere și Informații)</h3>
+      <textarea id="brief" placeholder="Ex.: Sunt consultant energetic. Interlocutor: director tehnic la o fabrică de ciment. Obiectiv: contract de audit energetic, preț țintă 18.000 €, minim 14.000 €. Puncte forte: experiență EU ETS, termen 6 săptămâni. Nu accept plata la peste 60 de zile."></textarea>
+      <div class="hint">Cu cât e mai precis, cu atât sugestiile sunt mai bune.</div>
+    </div>
+  </section>
+</main>
+
+<div id="black" class="hidden" title="Atinge de două ori pentru a ieși"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ================= Stocare locală (sigură) ================= */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('ad_'+k); return v === null ? d : v; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('ad_'+k, v); }catch(e){} }
+};
+const FIELDS = ['apiKey','model','customModel','inLang','outLang','rate','vol','pauseMs','maxWords','brief'];
+const CHECKS = ['whisper','autoNego','webSearch','muteWhileSpeak'];
+FIELDS.forEach(f => {
+  const v = store.get(f, null); if (v !== null) $(f).value = v;
+  $(f).addEventListener('change', () => { store.set(f, $(f).value); if (f === 'inLang' && S.running) rec.restart(); });
+});
+CHECKS.forEach(f => {
+  const v = store.get(f, null); if (v !== null) $(f).checked = v === '1';
+  $(f).addEventListener('change', () => store.set(f, $(f).checked ? '1' : '0'));
+});
+const num = (id, d, lo, hi) => { const v = parseFloat($(id).value); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+
+/* ================= Stare ================= */
+const S = {
+  running:false, mode:store.get('mode','nego'),
+  history:[], pending:'', timer:null, lastFinal:'', lastFinalT:0,
+  recentInfo:[], lastSpoken:'', wakeLock:null
+};
+
+/* ================= UI de bază ================= */
+const TABS = { tabLive:'live', tabDiag:'diag', tabSet:'settings' };
+function showTab(id){
+  Object.entries(TABS).forEach(([t, s]) => { $(t).classList.toggle('on', t === id); $(s).classList.toggle('hidden', t !== id); });
+  if (id === 'tabDiag') refreshDiag(); else stopMicTest();
+}
+Object.keys(TABS).forEach(t => $(t).onclick = () => showTab(t));
+function setMode(m){ S.mode = m; store.set('mode', m); document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m)); }
+document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+setMode(S.mode);
+
+function status(txt){ $('statusTxt').textContent = txt; $('dot').classList.toggle('live', S.running); }
+const idleStatus = () => status(S.running ? 'Ascult… (' + $('inLang').value + ')' : 'Oprit');
+
+// Ecran negru: ecranul rămâne activ (wake lock) dar nu se vede nimic; dublu-tap pentru ieșire
+let lastTap = 0;
+$('blackBtn').onclick = () => $('black').classList.remove('hidden');
+$('black').addEventListener('click', () => { const n = Date.now(); if (n - lastTap < 450) $('black').classList.add('hidden'); lastTap = n; });
+
+/* ================= Voce (TTS) cu coadă ================= */
+const hasTTS = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+let voices = [];
+function loadVoices(){
+  if (!hasTTS) return;
+  voices = speechSynthesis.getVoices() || [];
+  const sel = $('voice'), saved = store.get('voice', '');
+  sel.textContent = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '(automat după limbă)'; sel.appendChild(o0);
+  voices.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name + ' — ' + v.lang; sel.appendChild(o); });
+  sel.value = saved;
+}
+if (hasTTS){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+$('voice').onchange = () => store.set('voice', $('voice').value);
+
+function cleanForSpeech(t){
+  return String(t)
+    .replace(/[*_#`>]+/g, '')
+    .replace(/^\s*(sugestie|răspuns|traducere|info|replica?)\s*:\s*/i, '')
+    .replace(/^["„“”«»']+|["„“”«»']+$/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+const tts = {
+  queue:[], speaking:false, safety:null,
+  enqueue(text){
+    text = cleanForSpeech(text);
+    if (!text || !hasTTS) return;
+    S.lastSpoken = text;
+    this.queue.push(text);
+    if (this.queue.length > 6) this.queue.splice(0, this.queue.length - 6);   // nu acumulăm întârziere
+    if (!this.speaking) this.next();
+  },
+  interrupt(){
+    this.queue = []; clearTimeout(this.safety);
+    if (hasTTS) speechSynthesis.cancel();
+    if (this.speaking){ this.speaking = false; this.onIdle(); }
+  },
+  next(){
+    clearTimeout(this.safety);
+    const text = this.queue.shift();
+    if (!text){ if (this.speaking){ this.speaking = false; this.onIdle(); } return; }
+    if (!this.speaking){ this.speaking = true; this.onBusy(); }
+    const u = new SpeechSynthesisUtterance(text);
+    const lang = $('outLang').value;
+    const chosen = voices.find(v => v.name === $('voice').value) ||
+                   voices.find(v => (v.lang || '').replace('_','-').toLowerCase().startsWith(lang.slice(0,2)));
+    if (chosen) u.voice = chosen;
+    u.lang = chosen ? chosen.lang : lang;
+    const r = num('rate', 1.1, 0.7, 1.6);
+    u.rate = $('whisper').checked ? Math.min(r, 0.95) : r;
+    u.volume = num('vol', 1, 0, 1);
+    let done = false;
+    const fin = () => { if (done) return; done = true; this.next(); };
+    u.onend = fin; u.onerror = fin;
+    // plasă de siguranță: pe unele Android-uri onend nu se emite
+    const words = text.split(' ').length;
+    this.safety = setTimeout(fin, (words / (2.2 * u.rate)) * 1000 + 2500);
+    speechSynthesis.speak(u);
+  },
+  onBusy(){ if ($('muteWhileSpeak').checked && S.running) rec.pause(); },
+  onIdle(){ if (rec.paused) rec.resume(); }
+};
+$('testVoice').onclick = () => { tts.interrupt(); tts.enqueue($('outLang').value.startsWith('ro') ? 'Test. Asistentul este pregătit.' : 'Test. The assistant is ready.'); };
+$('repeatBtn').onclick = () => { if (S.lastSpoken){ const t = S.lastSpoken; tts.interrupt(); tts.enqueue(t); } };
+$('silenceBtn').onclick = () => tts.interrupt();
+
+/* ================= Recunoaștere vocală ================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const tEl = $('transcript');
+let interimEl = null;
+
+function addFinal(text){
+  S.history.push({ t: Date.now(), text });
+  if (S.history.length > 80) S.history.shift();
+  const p = document.createElement('div'); p.textContent = text;
+  if (interimEl) tEl.insertBefore(p, interimEl); else tEl.appendChild(p);
+  while (tEl.childElementCount > 120) tEl.removeChild(tEl.firstChild);
+  tEl.scrollTop = tEl.scrollHeight;
+}
+function setInterim(text){
+  if (!interimEl){ interimEl = document.createElement('div'); interimEl.className = 'interim'; tEl.appendChild(interimEl); }
+  interimEl.textContent = text; tEl.scrollTop = tEl.scrollHeight;
+}
+
+const rec = {
+  inst:null, paused:false, lastStart:0, backoff:150,
+  start(){
+    this.kill();
+    if (!S.running || this.paused) return;
+    const r = new SR();
+    r.lang = $('inLang').value; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = e => onResult(e);
+    r.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){ stopAll(); status('Acces la microfon refuzat'); }
+      else if (e.error === 'network'){ status('Recunoaștere: fără rețea – reîncerc…'); }
+      else if (e.error === 'audio-capture'){ status('Niciun microfon detectat'); }
+    };
+    r.onend = () => {
+      if (this.inst !== r) return;           // instanță veche, ignorată
+      this.inst = null;
+      if (!S.running || this.paused) return;
+      // Chrome oprește periodic sesiunea; repornim cu backoff dacă se oprește prea des
+      const quick = Date.now() - this.lastStart < 1500;
+      this.backoff = quick ? Math.min(this.backoff * 2, 4000) : 150;
+      setTimeout(() => { if (S.running && !this.paused && !this.inst) this.start(); }, this.backoff);
+    };
+    this.inst = r; this.lastStart = Date.now();
+    try { r.start(); idleStatus(); } catch(e){ this.inst = null; }
+  },
+  kill(){
+    const r = this.inst; this.inst = null;
+    if (r){ r.onresult = r.onerror = r.onend = null; try{ r.abort(); }catch(e){} }
+  },
+  restart(){ if (S.running) this.start(); },
+  pause(){ this.paused = true; this.kill(); },
+  resume(){ this.paused = false; if (S.running) this.start(); }
+};
+
+function onResult(e){
+  let interim = '';
+  for (let i = e.resultIndex; i < e.results.length; i++){
+    const res = e.results[i];
+    const txt = (res[0] && res[0].transcript || '').trim();
+    if (res.isFinal){
+      if (!txt) continue;
+      const now = Date.now();
+      if (txt === S.lastFinal && now - S.lastFinalT < 5000) continue;   // dublură (bug Chrome Android)
+      S.lastFinal = txt; S.lastFinalT = now;
+      addFinal(txt);
+      S.pending += (S.pending ? ' ' : '') + txt;
+    } else interim += txt + ' ';
+  }
+  setInterim(interim.trim());
+  clearTimeout(S.timer);
+  if (S.pending) S.timer = setTimeout(onPause, num('pauseMs', 1300, 300, 8000));
+}
+
+async function acquireWake(){ try{ if ('wakeLock' in navigator && document.visibilityState === 'visible') S.wakeLock = await navigator.wakeLock.request('screen'); }catch(e){} }
+
+async function startAll(){
+  if (!SR){ status('Browserul nu suportă recunoașterea vocală. Folosește Chrome pe Android.'); return; }
+  if (!$('apiKey').value.trim()){ $('tabSet').click(); status('Introdu cheia API în Setări'); return; }
+  stopMicTest();                                   // eliberăm microfonul folosit de diagnostic
+  S.running = true; rec.paused = false; rec.backoff = 150;
+  $('startBtn').textContent = '■ Oprește'; $('startBtn').classList.add('running');
+  await acquireWake();
+  rec.start();
+}
+function stopAll(){
+  S.running = false; clearTimeout(S.timer);
+  rec.kill(); rec.paused = false;
+  try{ S.wakeLock && S.wakeLock.release(); }catch(e){} S.wakeLock = null;
+  $('startBtn').textContent = '▶ Pornește ascultarea'; $('startBtn').classList.remove('running');
+  status('Oprit');
+}
+$('startBtn').onclick = () => S.running ? stopAll() : startAll();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S.running){ acquireWake(); if (!rec.inst && !rec.paused) rec.start(); }
+});
+$('clearBtn').onclick = () => {
+  S.history = []; S.pending = ''; S.recentInfo = []; S.lastFinal = '';
+  tEl.textContent = ''; interimEl = null; $('suggestions').textContent = ''; $('lat').textContent = '';
+};
+
+/* ================= Apel Claude (streaming + reîncercare + timeout) ================= */
+const modelName = () => ($('customModel').value.trim() || $('model').value);
+
+async function callClaude({ system, user, maxTok, tools, onText }){
+  const stream = !tools;
+  const body = { model: modelName(), max_tokens: maxTok, system, messages: [{ role:'user', content:user }] };
+  if (tools) body.tools = tools; else body.stream = true;
+  for (let attempt = 0; attempt < 2; attempt++){
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), tools ? 35000 : 15000);
+    try{
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', signal: ctrl.signal,
+        headers:{
+          'content-type':'application/json',
+          'x-api-key': $('apiKey').value.trim(),
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok){
+        let msg = 'HTTP ' + r.status;
+        try{ const j = await r.json(); if (j.error && j.error.message) msg = j.error.message; }catch(e){}
+        if ((r.status === 429 || r.status === 529 || r.status >= 500) && attempt === 0){ await new Promise(res => setTimeout(res, 700)); continue; }
+        throw new Error(msg);
+      }
+      if (!stream){
+        const data = await r.json();
+        const blocks = data.content || [];
+        const lastTool = blocks.map(b => b.type).lastIndexOf('web_search_tool_result');
+        const full = blocks.slice(lastTool + 1).filter(b => b.type === 'text').map(b => b.text).join('');
+        onText && onText(full, true);
+        return full;
+      }
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = '', full = '';
+      for (;;){
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream:true });
+        let idx;
+        while ((idx = buf.indexOf('\n')) >= 0){
+          const line = buf.slice(0, idx).trim(); buf = buf.slice(idx + 1);
+          if (!line.startsWith('data:')) continue;
+          let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
+          if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta'){ full += ev.delta.text; onText && onText(full, false); }
+          else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'eroare stream');
+        }
+      }
+      onText && onText(full, true);
+      return full;
+    } catch(e){
+      if (e.name === 'AbortError') throw new Error('timeout – rețea lentă');
+      throw e;
+    } finally { clearTimeout(to); }
+  }
+}
+
+$('testApi').onclick = async () => {
+  $('apiMsg').style.color = 'var(--mut)'; $('apiMsg').textContent = 'Testez…';
+  const t0 = performance.now();
+  try{
+    const out = await callClaude({ system:'Răspunde doar cu: OK', user:'test', maxTok:10 });
+    $('apiMsg').style.color = 'var(--ok)';
+    $('apiMsg').textContent = 'Conexiune OK (' + modelName() + ', ' + Math.round(performance.now() - t0) + ' ms): ' + out.trim();
+  }catch(e){ $('apiMsg').style.color = 'var(--bad)'; $('apiMsg').textContent = 'Eroare: ' + e.message; }
+};
+
+/* ================= Construirea cererilor ================= */
+const LANG_NAME = { ro:'română', en:'engleză', fr:'franceză', de:'germană', it:'italiană', es:'spaniolă', tr:'turcă' };
+const langName = code => LANG_NAME[code.slice(0,2)] || code;
+
+function buildPrompt(kind, chunk, manual){
+  const out = langName($('outLang').value), inn = langName($('inLang').value);
+  const whisper = $('whisper').checked;
+  const maxW = whisper ? Math.min(num('maxWords', 12, 5, 60), 12) : num('maxWords', 22, 5, 60);
+  const brief = $('brief').value.trim() || '(fără context)';
+  const silent = manual ? '' : ' Dacă nu e nimic util de spus, răspunde exact cu caracterul —';
+  if (kind === 'trad') return {
+    maxTok: 400,
+    system: `Ești interpret simultan. Traduci fidel și concis din ${inn} în ${out} fraze rostite într-o întâlnire de afaceri. ` +
+            `Transcrierea automată poate avea greșeli: corectează-le după sens. Răspunde DOAR cu traducerea, fără ghilimele sau comentarii.`,
+    user: chunk
+  };
+  if (kind === 'info'){
+    const ctx = S.history.slice(-20).map(h => '- ' + h.text).join('\n');
+    const said = S.recentInfo.slice(-8).map(s => '- ' + s).join('\n') || '(nimic)';
+    const lim = whisper ? 15 : Math.max(maxW, 30);
+    const p = {
+      maxTok: 300,
+      system: `Ești un asistent de documentare care îi șoptește utilizatorului în cască în timpul unei discuții libere. ` +
+        `Urmărești transcrierea live și identifici în ULTIMA INTERVENȚIE ce ar trebui să știe utilizatorul ca să participe competent: ` +
+        `o întrebare factuală, o persoană, o companie, o cifră, o reglementare, un termen tehnic, un eveniment, o afirmație îndoielnică. ` +
+        `Dă-i informația esențială, în ${out}, în maximum ${lim} de cuvinte, cu cifre concrete când există. ` +
+        `Dacă o afirmație auzită e greșită, spune scurt corectura. Dacă nu ești sigur, spune „neverificat”. ` +
+        `Nu repeta informațiile deja livrate. Fără introduceri, fără ghilimele, fără liste, fără markdown.` + silent,
+      user: `CONTEXT:\n${brief}\n\nDEJA LIVRAT:\n${said}\n\nTRANSCRIERE RECENTĂ:\n${ctx}\n\nULTIMA INTERVENȚIE:\n${chunk}`
+    };
+    if ($('webSearch').checked){ p.tools = [{ type:'web_search_20250305', name:'web_search', max_uses:2 }]; p.maxTok = 600; }
+    return p;
+  }
+  const ctx = S.history.slice(-25).map(h => '- ' + h.text).join('\n');
+  return {
+    maxTok: 200,
+    system: `Ești un consilier de negociere care îi șoptește utilizatorului în cască în timpul unei întâlniri de afaceri. ` +
+      `Primești brief-ul utilizatorului și transcrierea live (vorbitorii NU sunt identificați; deduce din context cine ce a spus). ` +
+      `Dă O SINGURĂ replică pe care utilizatorul o poate rosti acum, în ${out}, de maximum ${maxW} cuvinte, naturală, profesionistă, ` +
+      `care îi apără obiectivele din brief. Fără ghilimele, explicații, prefixe sau markdown.` +
+      (manual ? '' : ' Dacă ultima intervenție nu cere nicio reacție din partea utilizatorului (sau pare spusă chiar de el), răspunde exact cu caracterul —'),
+    user: `BRIEF:\n${brief}\n\nTRANSCRIERE RECENTĂ:\n${ctx}\n\nULTIMA INTERVENȚIE:\n${chunk}`
+  };
+}
+
+/* ================= Coada de lucrări ================= */
+const jobs = []; let busy = false;
+
+function onPause(){
+  const chunk = S.pending.trim(); S.pending = '';
+  if (!chunk) return;
+  if (S.mode === 'nego' && !$('autoNego').checked) return;
+  enqueueJob(S.mode, chunk, false);
+}
+$('nowBtn').onclick = () => {
+  clearTimeout(S.timer);
+  const chunk = S.pending.trim() || (S.history.length ? S.history[S.history.length - 1].text : '');
+  S.pending = '';
+  if (!chunk){ status('Încă nu s-a auzit nimic'); return; }
+  enqueueJob(S.mode, chunk, true);
+};
+
+function enqueueJob(kind, chunk, manual){
+  const last = jobs[jobs.length - 1];
+  if (last && last.kind === kind){ last.chunk += ' ' + chunk; last.manual = last.manual || manual; }  // unim, nu pierdem nimic
+  else jobs.push({ kind, chunk, manual, t0: performance.now() });
+  if (kind === 'nego') for (let i = jobs.length - 2; i >= 0; i--) if (jobs[i].kind === 'nego') jobs.splice(i, 1); // contează doar cea mai recentă
+  pump();
+}
+
+async function pump(){
+  if (busy) return;
+  const job = jobs.shift(); if (!job) return;
+  busy = true; status('Gândesc…');
+  const p = buildPrompt(job.kind, job.chunk, job.manual);
+  let spokenUpTo = 0, decided = false, skip = false, firstAt = 0;
+
+  const card = document.createElement('div'); card.className = 'sug ' + job.kind;
+  const head = document.createElement('small');
+  const bodyTxt = document.createTextNode('');
+  card.appendChild(head); card.appendChild(bodyTxt);
+
+  const onText = (full, done) => {
+    const t = full.trim();
+    if (!decided){
+      if (!done && t.length < 4) return;                  // așteptăm destul text ca să decidem
+      decided = true;
+      if (!t || /^[—–-]+[.\s]*$/.test(t)) skip = true;     // modelul a ales să tacă
+      if (skip) return;
+      if (job.kind === 'nego') tts.interrupt();          // replica nouă e mai relevantă
+      firstAt = performance.now();
+      $('suggestions').prepend(card);
+    }
+    if (skip) return;
+    head.textContent = ({ nego:'Sugestie', trad:'Traducere', info:'Info' })[job.kind] + ' · ' + new Date().toLocaleTimeString('ro-RO');
+    bodyTxt.textContent = cleanForSpeech(full);
+    // vorbim pe propoziții, pe măsură ce sosesc
+    const rest = full.slice(spokenUpTo);
+    let cut = -1;
+    if (done) cut = rest.length;
+    else { const re = /[.!?…;](?=\s)/g; let m; while ((m = re.exec(rest))) cut = m.index + 1; }
+    if (cut > 0){
+      const seg = rest.slice(0, cut); spokenUpTo += cut;
+      if (cleanForSpeech(seg)) tts.enqueue(seg);
+    }
+  };
+
+  try{
+    const full = await callClaude({ system:p.system, user:p.user, maxTok:p.maxTok, tools:p.tools, onText });
+    if (!skip && full.trim()){
+      if (job.kind === 'info'){ S.recentInfo.push(cleanForSpeech(full)); if (S.recentInfo.length > 20) S.recentInfo.shift(); }
+      $('lat').textContent = Math.round(firstAt - job.t0) + ' ms';
+    }
+    idleStatus();
+  }catch(e){
+    status('Eroare AI: ' + e.message);
+  }finally{
+    busy = false;
+    if (jobs.length) pump();
+  }
+}
+
+/* ================= Diagnostic ================= */
+const EXT_RE = /usb|rode|wireless\s*micro|dji|mic\s*mini|external|extern/i;
+let micStream = null, audioCtx = null, meterRaf = 0;
+
+function setKV(id, text, cls){ const el = $(id); el.textContent = text; el.className = cls || ''; }
+
+async function startMicTest(){
+  stopMicTest();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ setKV('dMic', 'indisponibil (necesită HTTPS)', 'bad'); return; }
+  if (S.running) stopAll();                       // nu concurăm cu recunoașterea vocală
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+  }catch(e){ setKV('dMic', 'acces refuzat: ' + e.name, 'bad'); return; }
+  const track = micStream.getAudioTracks()[0];
+  const label = (track && track.label) || '(fără nume)';
+  setKV('dMic', label);
+  const ext = EXT_RE.test(label);
+  setKV('dMicType', ext ? 'extern (receptorul Rode) ✓' : 'microfonul intern al telefonului', ext ? 'ok' : 'warn');
+  try{
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    $('devList').textContent = 'Microfoane detectate: ' + (devs.map(d => d.label || '(ascuns)').join(' · ') || 'niciunul');
+  }catch(e){}
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    if (audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); }catch(e){} }   // Chrome îl poate porni suspendat
+    const src = audioCtx.createMediaStreamSource(micStream), an = audioCtx.createAnalyser();
+    an.fftSize = 1024; src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+    const tick = () => {
+      an.getFloatTimeDomainData(buf);
+      let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+      const db = 20 * Math.log10(Math.sqrt(s / buf.length) + 1e-9);          // dBFS
+      $('dMeter').style.width = Math.max(0, Math.min(100, (db + 60) * 100 / 60)) + '%';
+      meterRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  }catch(e){}
+  $('diagMicBtn').textContent = 'Oprește verificarea';
+}
+function stopMicTest(){
+  cancelAnimationFrame(meterRaf); meterRaf = 0;
+  if (micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx){ try{ audioCtx.close(); }catch(e){} audioCtx = null; }
+  if ($('dMeter')) $('dMeter').style.width = '0';
+  if ($('diagMicBtn')) $('diagMicBtn').textContent = 'Verifică microfonul';
+}
+$('diagMicBtn').onclick = () => micStream ? stopMicTest() : startMicTest();
+$('diagEarBtn').onclick = () => { tts.interrupt(); tts.enqueue($('outLang').value.startsWith('ro') ? 'Unu, doi, trei. Casca funcționează.' : 'One, two, three. The earpiece works.'); };
+
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function refreshDiag(){
+  setKV('dSR', SR ? 'disponibilă ✓' : 'lipsă – folosește Chrome', SR ? 'ok' : 'bad');
+  setKV('dTTS', hasTTS ? (voices.length + ' voci') : 'lipsă', hasTTS && voices.length ? 'ok' : 'bad');
+  setKV('dNet', navigator.onLine ? 'conectat ✓' : 'deconectat', navigator.onLine ? 'ok' : 'bad');
+  setKV('dKey', $('apiKey').value.trim() ? 'introdusă ✓' : 'lipsește (Setări)', $('apiKey').value.trim() ? 'ok' : 'bad');
+  setKV('dPwa', isStandalone() ? 'da ✓' : 'nu (rulează în browser)', isStandalone() ? 'ok' : 'warn');
+  updateBattery();
+}
+
+/* ================= Baterie ================= */
+let battObj = null;
+function updateBattery(){
+  if (!battObj) return;
+  const pct = Math.round(battObj.level * 100), ch = battObj.charging ? ', se încarcă' : '';
+  const cls = pct <= 20 && !battObj.charging ? 'bad' : 'ok';
+  setKV('dBatt', pct + '%' + ch, cls);
+  $('batt').textContent = 'Baterie telefon: ' + pct + '%' + ch + (cls === 'bad' ? ' – încarcă înainte de întâlnire!' : '');
+}
+if (navigator.getBattery) navigator.getBattery().then(b => {
+  battObj = b; updateBattery();
+  b.addEventListener('levelchange', updateBattery); b.addEventListener('chargingchange', updateBattery);
+}).catch(() => {});
+
+/* ================= Instalare ca aplicație (PWA) ================= */
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; $('installBtn').classList.remove('hidden'); });
+window.addEventListener('appinstalled', () => { $('installBtn').classList.add('hidden'); deferredInstall = null; });
+$('installBtn').onclick = async () => { if (!deferredInstall) return; deferredInstall.prompt(); try{ await deferredInstall.userChoice; }catch(e){} deferredInstall = null; $('installBtn').classList.add('hidden'); };
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// cârlig pentru teste automate (inofensiv în utilizare normală)
+window.__AD = { S, jobs, tts, rec, cleanForSpeech };
+})();
+</script>
+</body>
+</html>
