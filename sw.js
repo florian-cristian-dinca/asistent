@@ -1,6 +1,6 @@
 // Service worker: păstrează interfața aplicației în cache ca să pornească instant.
 // Apelurile către API (Anthropic, Google) NU trec prin cache.
-const CACHE = 'asistent-v1';
+const CACHE = 'asistent-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
